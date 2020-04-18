@@ -21,7 +21,7 @@ To exit, type `exit` or `quit` in the stdin of the client you want to close.
 To insert a file, type `insert <FILE_NAME>` in the stdin of any client.
 
 ## Requesting
-To request a file, type `get `<FILE_NAME>` or `request <FILE_NAME>`
+To request a file, type `get <FILE_NAME>` or `request <FILE_NAME>`
 in the stdin of any client.
 
 
