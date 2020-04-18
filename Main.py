@@ -8,7 +8,7 @@ import time
 import datetime as dt
 import sys
 
-from Helpers import Message, Peer, to_id, to_port
+from Helpers import *
 import Globals as g
 from Globals import IP_ADDRESS
 from UDPHandlers import init_udp
@@ -21,6 +21,10 @@ from TCPHandlers import init_tcp
 # One thread will listen to the incoming port, the other will send pings/info
 
 #Server will run on this port + id
+
+def print_usage(use):
+    print("Invalid Usage: ", use)
+    print("Valid commands:\ninsert|store [filename]\nexit|quit")
 
 def init_network(id, succ_1, succ_2, ping_interval):
 
@@ -70,8 +74,8 @@ if __name__ == "__main__":
     
     #this is the main thread
     while True:
-        cmd = input()
-        if (cmd.lower() == "quit"):
+        cmd = input().lower().split(" ")
+        if (cmd[0] == "quit" or cmd[0] == "exit"):
             # TODO: Stop threads here.
             killer_message = Message(Message.DIE).content()
             tcp_killer = s.socket(s.AF_INET, s.SOCK_STREAM)
@@ -84,7 +88,7 @@ if __name__ == "__main__":
                 time.sleep(0.01)
             g.tcp_socket.close()
             g.udp_socket.close()
-
+            # TODO: Transfer files forward.
             with g.peer_lock:
                 if g.peers[0].port() == g.server_port:
                     sys.exit()
@@ -92,7 +96,7 @@ if __name__ == "__main__":
                 listener.setsockopt(s.SOL_SOCKET, s.SO_REUSEADDR, 1)
                 listener.bind((IP_ADDRESS, g.server_port))
                 listener.listen()
-                sender = s.socket(s.AF_INET, s.SOCK_STREAM)
+                sender = s.socket(s.AF_INET, s.SOCK_STREAM) 
                 print(g.peers[0].port())
                 sender.connect((IP_ADDRESS, g.peers[0].port()))
 
@@ -103,11 +107,63 @@ if __name__ == "__main__":
 
                     if (data.mType() == Message.YOUR_SUCC):
                         conn.sendall(Message(Message.MY_SUCC, [g.peers[0].port(), g.peers[1].port()]).content())
-                        conn.close()
                     if (data.mType() == Message.BYE):
                         conn.sendall(Message(Message.MY_SUCC, [g.peers[0].port(), g.peers[1].port()]).content())
                         conn.close()
                         sys.exit(0)
+                    conn.close()
+        elif(cmd[0] == "store" or cmd[0] == "insert"):
+            if (len(cmd) < 2 or not is_valid_file_name(cmd[1])):
+                print_usage(cmd)
+            else:
+                file_name = cmd[1]
+                hashed_name = file_hash(file_name)
+                print("{} with hash {}".format(file_name, hashed_name))
+                if (to_id(g.server_port) == hashed_name):
+                    with g.table_lock:
+                        if (file_name not in g.table):
+                            g.table[file_name] = True # it is stored
+                        else:
+                            print("File {} being replaced".format(file_name))
+                        g.table_lock.notify()
+                    print("Store {} request accepted".format(file_name))
+                else:
+                    if first_peer_owns_file(g.peers, hashed_name, g.ID):
+                        message = Message(Message.INSERT, [file_name, g.ID])
+                        send_tcp_with_retrys(message.content(), g.peers[0].port())
+                        print("Store {} request forwarded to successor {}".format(file_name, g.peers[0].ID()))
+                    else:
+                        message = Message(Message.INSERT, [file_name, g.peers[0].ID()])
+                        send_tcp_with_retrys(message.content(), g.peers[1].port())
+                        print("Store {} request forwarded to successor {}".format(file_name, g.peers[1].ID()))   
+        elif(cmd[0] == "request" or cmd[0] == "get"):
+            if (len(cmd) < 2 or not is_valid_file_name(cmd[1])):
+                print_usage(cmd)
+            else:
+                file_name = cmd[1]
+                if file_name in g.table:
+                    print("File {} is stored here.".format(file_name))
+                    f0 = get_file(file_name)
+                    f1 = create_file("_" + file_name, False)
+                    while True:
+                        data = f0.read(4096)
+                        if not data:
+                            break
+                        f1.write(data)
+                    f0.close()
+                    f1.close()
+                else:
+                    hashed_name = file_hash(file_name)
+                    if to_id(g.server_port) == hashed_name:
+                        print("File {} not found.".format(file_name))
+                    else:
+                        message = Message(Message.GET, [file_name, g.server_port])
+                        dest = g.peers[0] if first_peer_owns_file(g.peers, hashed_name, g.ID) else g.peers[1]
+                        send_tcp_with_retrys(message.content(), dest.port())
+                        print("File request for {} forwarded to {}".format(file_name, dest.ID()))
+        else:
+            print_usage(cmd)
+            
 
     
 

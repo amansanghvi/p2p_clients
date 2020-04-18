@@ -27,11 +27,13 @@ def init_globals(_ID, _server_port, _peers, _ping_interval):
     global ping_socket
     global udp_socket
     global tcp_socket
-    global t_lock
+    global table_lock
     global peer_lock
     global thread_list
+    global table
 
     thread_list = []
+    table = {}
     
     peers = _peers
     ping_interval = _ping_interval
@@ -48,8 +50,9 @@ def init_globals(_ID, _server_port, _peers, _ping_interval):
     tcp_socket.bind((IP_ADDRESS, server_port))
     tcp_socket.listen()
 
-    t_lock=threading.Condition()
+    table_lock=threading.Condition()
     peer_lock=threading.Condition()
+
 
     print("Globals initialised")
 

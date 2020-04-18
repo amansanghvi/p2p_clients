@@ -99,22 +99,34 @@ def retry_pings():
         socket = s.socket(s.AF_INET, s.SOCK_STREAM)
         if (g.peers[0].is_lost()):
             print("Peer {} is no longer alive".format(to_id(p.port())))
-            socket.connect((IP_ADDRESS, g.peers[1].port()))
-            socket.sendall(Message(Message.YOUR_SUCC, g.server_port).content())
-            succs = Message.fromMessage(socket.recv(1024)).data()
-            with g.peer_lock:
-                g.peers = [g.peers[1], Peer(succs[0])]
-            print("Successors updated.")
-            print("My first successor is Peer {}".format(g.peers[0].ID()))
-            print("My second successor is Peer {}".format(g.peers[1].ID()))
+            for i in range(0,3):
+                try:
+                    socket.connect((IP_ADDRESS, g.peers[1].port()))
+                    socket.sendall(Message(Message.YOUR_SUCC, g.server_port).content())
+                    succs = Message.fromMessage(socket.recv(1024)).data()
+                    with g.peer_lock:
+                        g.peers = [g.peers[1], Peer(succs[0])]
+                    print("Successors updated.")
+                    print("My first successor is Peer {}".format(g.peers[0].ID()))
+                    print("My second successor is Peer {}".format(g.peers[1].ID()))
+                    break
+                except:
+                    pass
+                    if (i == 2):
+                        print("Lost first and second successors. Everything is broken.")
         elif(g.peers[1].is_lost()):
             print("Peer {} is no longer alive".format(to_id(p.port())))
-            socket.connect((IP_ADDRESS, g.peers[0].port()))
-            socket.sendall(Message(Message.YOUR_SUCC, g.server_port).content())
-            succs = Message.fromMessage(socket.recv(1024)).data()
-            with g.peer_lock:
-                g.peers[1] = Peer(succs[0])
-            print("Successors updated.")
-            print("My first successor is Peer {}".format(g.peers[0].ID()))
-            print("My second successor is Peer {}".format(g.peers[1].ID()))
+            for i in range(0,3): 
+                try:
+                    socket.connect((IP_ADDRESS, g.peers[0].port()))
+                    socket.sendall(Message(Message.YOUR_SUCC, g.server_port).content())
+                    succs = Message.fromMessage(socket.recv(1024)).data()
+                    with g.peer_lock:
+                        g.peers[1] = Peer(succs[0])
+                    print("Successors updated.")
+                    print("My first successor is Peer {}".format(g.peers[0].ID()))
+                    print("My second successor is Peer {}".format(g.peers[1].ID()))
+                except:
+                    if i ==2:
+                        print("Lost first and second successors. Everything is broken.")
         socket.close()

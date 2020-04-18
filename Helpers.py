@@ -5,16 +5,17 @@ import socket as s
 class Message:
     UNSUBSCRIBE = "UNSUBSCRIBE"
     SUBSCRIBE = "SUBSCRIBE"
-    INSERT = "INSERT {} {}"
-    DELETE = "DELETE {}"
+    INSERT = "INSERT {} {}" # File name and predecessor ID
+    GET = "GET {} {}" # File name and requester port.
+    POST = "POST {}" # File name.
     CONNECT = "CONNECT"
-    PING = "PING {}"
-    PONG = "PONG {}"
-    JOIN = "JOIN {}"
-    YOUR_SUCC = "YOUR_SUCC {}"
-    MY_SUCC = "MY_SUCC {} {}"
-    QUIT = "QUIT {}"
-    BYE = "BYE {}"
+    PING = "PING {}" # Source port
+    PONG = "PONG {}" # Source port
+    JOIN = "JOIN {}" # Joiner's port
+    YOUR_SUCC = "YOUR_SUCC {}" # Target's successor port
+    MY_SUCC = "MY_SUCC {} {}" # Source's successors ports
+    QUIT = "QUIT {}" # Source's port
+    BYE = "BYE {}" # Source's port
     DIE = "DIE"
     UNKNOWN = "UNKNOWN"
 
@@ -88,10 +89,10 @@ class Peer:
     def response_recieved(self):
         return self._status > 0
 
-def FileHash(id):
-    return id % 256
+def file_hash(f):
+    return int(f) % 256
 
-def isValidFilename(name):
+def is_valid_file_name(name):
     return len(name) == 4 and name.isdigit()
 
 def to_id(port):
@@ -100,14 +101,33 @@ def to_id(port):
 def to_port(id):
     return id + PORT_OFFSET
 
-def send_tcp_with_retrys(port, data):
-    for _ in range(0, 3):
+def send_tcp_with_retrys(data, port):
+    for _ in range(0, 2):
         try:
             socket = s.socket(s.AF_INET, s.SOCK_STREAM)
             socket.connect((IP_ADDRESS, port))
             socket.sendall(data)
             socket.close()
+            print("Sent message: {} to port {}".format(data,port))
             return True
         except:
             pass
+    print("Unable to send content to {}".format(port))
     return False
+
+def get_file_name(file_code):
+    return "{:04d}".format(file_code)
+
+def get_file(file_name):
+    f = open(file_name+".pdf", "r")
+    return f
+
+def create_file(file_name, close=True):
+    f = open(file_name+".pdf", "w+") # Create file if not exists
+    if (close):
+        f.close()
+    return f
+
+def first_peer_owns_file(peers, hashed_name, ID):
+    return (peers[0].ID() >= ID and hashed_name <= peers[0].ID() and hashed_name > ID) \
+            or (peers[0].ID() <= ID and (hashed_name > ID or hashed_name <= peers[0].ID()))
